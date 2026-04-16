@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Autenticação Segura</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2e3347;
+      --border-hover: #4a5070;
+      --text: #e8eaf0;
+      --muted: #7b82a0;
+      --accent: #4f8ef7;
+      --accent-dark: #2d6fd4;
+      --success: #3ecf8e;
+      --danger: #f04d4d;
+      --warn: #f0a140;
+      --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .container { width: 100%; max-width: 480px; }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h1 .icon { font-size: 20px; }
+    .subtitle { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 20px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 8px;
+      background: transparent;
+      border: none;
+      border-radius: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .tab-btn:hover:not(.active) { background: var(--border); color: var(--text); }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .card-desc { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+
+    label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 6px;
+      margin-top: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      transition: border 0.15s;
+    }
+
+    input:focus { outline: none; border-color: var(--accent); }
+
+    .strength-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .strength-fill { height: 100%; border-radius: 2px; transition: width 0.2s, background 0.2s; }
+    .strength-text { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    .btn {
+      width: 100%;
+      padding: 11px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: all 0.15s;
+    }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-dark); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background: var(--border); color: var(--text); }
+    .btn-secondary:hover { background: var(--border-hover); }
+
+    .alert {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-top: 14px;
+      display: none;
+    }
+
+    .alert.success { background: #0d2e1e; border: 1px solid #1a5c3a; color: var(--success); }
+    .alert.error { background: #2e0d0d; border: 1px solid #5c1a1a; color: var(--danger); }
+    .alert.warn { background: #2e1e0d; border: 1px solid #5c3a1a; color: var(--warn); }
+    .alert.info { background: #0d1e2e; border: 1px solid #1a3a5c; color: #7ab4f4; }
+
+    .totp-display {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      margin: 16px 0 8px;
+    }
+
+    .totp-digit {
+      width: 44px;
+      height: 56px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .totp-timer {
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .timer-arc {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--success);
+      margin-right: 6px;
+      vertical-align: middle;
+      transition: background 0.3s;
+    }
+
+    .code-block {
+      background: #0a0c14;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: #9bb4d4;
+      word-break: break-all;
+      line-height: 1.7;
+      margin-top: 12px;
+    }
+
+    .policy-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .policy-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .policy-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .policy-value { font-size: 20px; font-weight: 600; color: var(--text); margin-top: 2px; }
+
+    .attempt-dots {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.2s;
+    }
+
+    .dot.used { background: var(--danger); }
+    .dot.locked { background: var(--warn); animation: pulse 1s infinite; }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .session-info {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: var(--mono);
+      line-height: 1.8;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-green { background: #0d2e1e; color: var(--success); }
+    .badge-red { background: #2e0d0d; color: var(--danger); }
+    .badge-blue { background: #0d1e2e; color: #7ab4f4; }
+
+    .divider { height: 1px; background: var(--border); margin: 18px 0; }
+
+    #logged-panel .card-title { color: var(--success); }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1><span class="icon">🔒</span> AuthSystem</h1>
+  <p class="subtitle">Autenticação segura · bcrypt · TOTP 2FA · Política de sessão</p>
+
+  <!-- TABS -->
+  <div class="tabs" id="main-tabs">
+    <button class="tab-btn active" onclick="switchTab('register')">Cadastro</button>
+    <button class="tab-btn" onclick="switchTab('login')">Login</button>
+    <button class="tab-btn" onclick="switchTab('totp')">2FA</button>
+    <button class="tab-btn" onclick="switchTab('policy')">Política</button>
+  </div>
+
+  <!-- ── CADASTRO ── -->
+  <div id="tab-register" class="panel active">
+    <div class="card">
+      <div class="card-title">Criar conta</div>
+      <div class="card-desc">Hash bcrypt cost 12 + salt único por usuário</div>
+      <label>E-mail</label>
+      <input type="email" id="reg-email" placeholder="usuario@exemplo.com">
+      <label>Senha</label>
+      <input type="password" id="reg-pass" placeholder="mínimo 8 caracteres" oninput="updateStrength(this.value)">
+      <div class="strength-bar"><div class="strength-fill" id="strength-fill" style="width:0"></div></div>
+      <div class="strength-text" id="strength-text"></div>
+      <button class="btn btn-primary" onclick="register()">Criar conta</button>
+      <div class="alert" id="reg-alert"></div>
+    </div>
+  </div>
+
+  <!-- ── LOGIN ── -->
+  <div id="tab-login" class="panel">
+    <div class="card">
+      <div class="card-title">Entrar</div>
+      <div class="card-desc">Verifica hash + controle de tentativas</div>
+      <label>E-mail</label>
+      <input type="email" id="login-email" placeholder="usuario@exemplo.com">
+      <label>Senha</label>
+      <input type="password" id="login-pass" placeholder="sua senha">
+      <button class="btn btn-primary" onclick="login()">Entrar</button>
+      <div class="alert" id="login-alert"></div>
+    </div>
+
+    <!-- Painel 2FA (aparece quando necessário) -->
+    <div class="card" id="totp-login-card" style="display:none;">
+      <div class="card-title">Código de autenticação</div>
+      <div class="card-desc">Abra seu app autenticador e insira o código de 6 dígitos</div>
+      <label>Código TOTP</label>
+      <input type="text" id="totp-login-code" maxlength="6" placeholder="000000"
+             style="font-family:var(--mono);font-size:22px;letter-spacing:8px;text-align:center;">
+      <button class="btn btn-primary" onclick="submitTOTP()">Verificar código</button>
+      <div class="alert" id="totp-login-alert"></div>
+    </div>
+
+    <!-- Usuário logado -->
+    <div class="card" id="logged-panel" style="display:none;">
+      <div class="card-title">✓ Autenticado</div>
+      <div class="session-info" id="session-info"></div>
+      <button class="btn btn-secondary" style="margin-top:14px;" onclick="logout()">Encerrar sessão</button>
+    </div>
+  </div>
+
+  <!-- ── 2FA ── -->
+  <div id="tab-totp" class="panel">
+    <div class="card">
+      <div class="card-title">Autenticação de dois fatores (TOTP)</div>
+      <div class="card-desc">RFC 6238 · HMAC-SHA1 · janela de 30s · tolerância ±1 passo</div>
+
+      <div id="totp-setup-section">
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;">
+          Após cadastrar, escaneie o QR code abaixo com Google Authenticator, Authy ou similar,
+          depois insira o código para confirmar e ativar o 2FA.
+        </p>
+        <div id="qr-section" style="display:none;text-align:center;margin-top:16px;">
+          <div id="qr-code" style="display:inline-block;background:#fff;padding:12px;border-radius:8px;"></div>
+          <div class="code-block" id="totp-secret-display"></div>
+        </div>
+
+        <label style="margin-top:18px;">Código para ativar</label>
+        <input type="text" id="totp-enable-code" maxlength="6" placeholder="000000"
+               style="font-family:var(--mono);font-size:18px;letter-spacing:6px;text-align:center;">
+        <button class="btn btn-primary" onclick="enableTOTP()">Ativar 2FA</button>
+        <div class="alert" id="totp-alert"></div>
+      </div>
+    </div>
+
+    <!-- <div class="card">
+      <div class="card-title">Código atual (simulação)</div>
+      <div class="card-desc">Contador TOTP em tempo real — atualiza a cada 30 segundos</div>
+      <div class="totp-display" id="totp-live-display"></div>
+      <div class="totp-timer">
+        <span class="timer-arc" id="timer-arc"></span>
+        <span id="timer-text">—</span>
+      </div>
+      <p style="font-size:12px;color:var(--muted);">
+        O código é gerado localmente apenas para demonstração.
+        Em produção, o app autenticador do usuário gera os códigos.
+      </p>
+    </div> -->
+  </div>
+
+  <!-- ── POLÍTICA ── -->
+  <div id="tab-policy" class="panel">
+    <div class="card">
+      <div class="card-title">Política de sessão e bloqueio</div>
+      <div class="card-desc">Parâmetros ativos do servidor</div>
+      <div class="policy-grid">
+        <div class="policy-item">
+          <div class="policy-label">Tentativas máx.</div>
+          <div class="policy-value">5</div>
+        </div>
+        <div class="policy-item">
+          <div class="policy-label">Bloqueio</div>
+          <div class="policy-value">15 min</div>
+        </div>
+        <div class="policy-item">
+          <div class="policy-label">TTL de sessão</div>
+          <div class="policy-value">2 h</div>
+        </div>
+        <div class="policy-item">
+          <div class="policy-label">Idle timeout</div>
+          <div class="policy-value">30 min</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Estado atual da conta</div>
+      <div class="card-desc">Informe o e-mail para verificar</div>
+      <label>E-mail</label>
+      <input type="email" id="policy-email" placeholder="usuario@exemplo.com">
+      <button class="btn btn-secondary" style="margin-top:14px;" onclick="checkPolicy()">Verificar estado</button>
+      <div id="policy-result" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Explicação de segurança</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.8;">
+        <strong style="color:var(--text);">Hash + Salt</strong><br>
+        bcrypt com cost 12 ≈ 300ms/hash. Salt único via <code>crypto.randomBytes</code>
+        impede rainbow tables. Hash não é reversível.<br><br>
+        <strong style="color:var(--text);">TOTP (2FA)</strong><br>
+        Código HMAC-SHA1 de 6 dígitos válido por 30s.
+        Tolerância de ±1 passo para drift de relógio.
+        Replay prevention: cada código usado uma vez.<br><br>
+        <strong style="color:var(--text);">Sessão</strong><br>
+        Token de 256 bits armazenado server-side. Cookie httpOnly + SameSite.
+        TTL absoluto de 2h + idle timeout de 30min.<br><br>
+        <strong style="color:var(--text);">Bloqueio</strong><br>
+        5 falhas consecutivas bloqueiam por 15min. Resposta genérica
+        evita enumeração de e-mails válidos.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QR Code lib -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+const API = '';
+let currentTotpSecret = null;
+let totpInterval = null;
+
+// ─────────────────────────────────────────────
+// Tabs
+// ─────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ─────────────────────────────────────────────
+// Alert helper
+// ─────────────────────────────────────────────
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'alert ' + type;
+  el.style.display = 'block';
+}
+
+// ─────────────────────────────────────────────
+// Força de senha
+// ─────────────────────────────────────────────
+function updateStrength(p) {
+  let s = 0;
+  if (p.length >= 8) s++;
+  if (p.length >= 12) s++;
+  if (/[A-Z]/.test(p)) s++;
+  if (/[0-9]/.test(p)) s++;
+  if (/[^a-zA-Z0-9]/.test(p)) s++;
+  const pct = s * 20;
+  const colors = ['#f04d4d','#f04d4d','#f0a140','#3ecf8e','#4f8ef7','#3ecf8e'];
+  const labels = ['','Muito fraca','Fraca','Razoável','Boa','Excelente'];
+  document.getElementById('strength-fill').style.width = pct + '%';
+  document.getElementById('strength-fill').style.background = colors[s];
+  document.getElementById('strength-text').textContent = p.length ? 'Força: ' + labels[s] : '';
+}
+
+// ─────────────────────────────────────────────
+// Cadastro
+// ─────────────────────────────────────────────
+async function register() {
+  const email = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-pass').value;
+  try {
+    const r = await fetch(API + '/api/register', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await r.json();
+    if (!r.ok) { showAlert('reg-alert', data.error, 'error'); return; }
+
+    showAlert('reg-alert', `Conta criada! Configure o 2FA na aba correspondente.`, 'success');
+    currentTotpSecret = data.totpSecret;
+
+    // Preenche seção de TOTP
+    const qrSec = document.getElementById('qr-section');
+    qrSec.style.display = 'block';
+    document.getElementById('totp-secret-display').textContent = 'Secret: ' + data.totpSecret;
+    document.getElementById('qr-code').innerHTML = '';
+    new QRCode(document.getElementById('qr-code'), {
+      text: data.totpOtpAuthUrl,
+      width: 160, height: 160,
+    });
+
+    // Prefill e-mails
+    document.getElementById('login-email').value = email;
+    document.getElementById('policy-email').value = email;
+
+    startTOTPDisplay(data.totpSecret);
+  } catch(e) { showAlert('reg-alert', 'Erro de conexão com o servidor.', 'error'); }
+}
+
+// ─────────────────────────────────────────────
+// Login
+// ─────────────────────────────────────────────
+async function login() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-pass').value;
+  try {
+    const r = await fetch(API + '/api/login', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await r.json();
+    if (!r.ok) { showAlert('login-alert', data.error, 'error'); return; }
+
+    if (data.requires2FA) {
+      document.getElementById('totp-login-card').style.display = 'block';
+      showAlert('login-alert', 'Senha correta. Insira o código TOTP abaixo.', 'info');
+    } else {
+      showLoggedIn(data);
+    }
+  } catch(e) { showAlert('login-alert', 'Erro de conexão.', 'error'); }
+}
+
+async function submitTOTP() {
+  const token = document.getElementById('totp-login-code').value;
+  try {
+    const r = await fetch(API + '/api/login/totp', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    const data = await r.json();
+    if (!r.ok) { showAlert('totp-login-alert', data.error, 'error'); return; }
+    showLoggedIn(data);
+  } catch(e) { showAlert('totp-login-alert', 'Erro de conexão.', 'error'); }
+}
+
+function showLoggedIn(data) {
+  document.getElementById('totp-login-card').style.display = 'none';
+  document.getElementById('logged-panel').style.display = 'block';
+  document.getElementById('login-alert').style.display = 'none';
+  fetchSessionInfo();
+}
+
+async function fetchSessionInfo() {
+  try {
+    const r = await fetch(API + '/api/me', { credentials: 'include' });
+    const data = await r.json();
+    if (!r.ok) return;
+    const created = new Date(data.sessionCreatedAt).toLocaleTimeString('pt-BR');
+    const expires = new Date(data.sessionExpiresAt).toLocaleTimeString('pt-BR');
+    document.getElementById('session-info').innerHTML =
+      `email: ${data.email}\n2FA: ${data.totpEnabled ? '✓ ativo' : '✗ inativo'}\nsessão criada: ${created}\nexpira em: ${expires}`;
+  } catch(e) {}
+}
+
+async function logout() {
+  await fetch(API + '/api/logout', { method: 'POST', credentials: 'include' });
+  document.getElementById('logged-panel').style.display = 'none';
+  document.getElementById('totp-login-card').style.display = 'none';
+  document.getElementById('login-pass').value = '';
+  showAlert('login-alert', 'Sessão encerrada.', 'info');
+}
+
+// ─────────────────────────────────────────────
+// Ativar TOTP
+// ─────────────────────────────────────────────
+async function enableTOTP() {
+  const token = document.getElementById('totp-enable-code').value;
+  try {
+    const r = await fetch(API + '/api/totp/enable', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    const data = await r.json();
+    if (!r.ok) { showAlert('totp-alert', data.error, 'error'); return; }
+    showAlert('totp-alert', '2FA ativado com sucesso! Próximo login vai pedir o código.', 'success');
+  } catch(e) { showAlert('totp-alert', 'Faça login primeiro.', 'warn'); }
+}
+
+// ─────────────────────────────────────────────
+// Display TOTP em tempo real
+// ─────────────────────────────────────────────
+function base32ToBytes(base32) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const clean = base32.toUpperCase().replace(/=+$/g, '').replace(/\s+/g, '');
+
+  let bits = '';
+  for (const char of clean) {
+    const value = alphabet.indexOf(char);
+    if (value === -1) throw new Error('Secret TOTP inválido.');
+    bits += value.toString(2).padStart(5, '0');
+  }
+
+  const bytes = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) {
+    bytes.push(parseInt(bits.slice(i, i + 8), 2));
+  }
+
+  return new Uint8Array(bytes);
+}
+
+async function computeTOTP(secret) {
+  const step = Math.floor(Date.now() / 30000);
+  const keyBytes = base32ToBytes(secret);
+
+  // TOTP RFC 6238: HOTP(counter=timeStep) com HMAC-SHA1
+  const counter = new ArrayBuffer(8);
+  const view = new DataView(counter);
+  view.setUint32(0, Math.floor(step / 0x100000000));
+  view.setUint32(4, step >>> 0);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, counter);
+  const hmac = new Uint8Array(signature);
+  const offset = hmac[hmac.length - 1] & 0x0f;
+
+  const binary =
+    ((hmac[offset] & 0x7f) << 24) |
+    ((hmac[offset + 1] & 0xff) << 16) |
+    ((hmac[offset + 2] & 0xff) << 8) |
+    (hmac[offset + 3] & 0xff);
+
+  return (binary % 1000000).toString().padStart(6, '0');
+}
+
+function startTOTPDisplay(secret) {
+  if (totpInterval) clearInterval(totpInterval);
+  currentTotpSecret = secret;
+
+  async function update() {
+    try {
+      const code = await computeTOTP(secret);
+      const rem = 30 - (Math.floor(Date.now() / 1000) % 30);
+      const grid = document.getElementById('totp-live-display');
+      grid.innerHTML = code.split('').map(d =>
+        `<div class="totp-digit">${d}</div>`
+      ).join('');
+      document.getElementById('timer-text').textContent = `Expira em ${rem}s`;
+      const arc = document.getElementById('timer-arc');
+      arc.style.background = rem <= 5 ? 'var(--danger)' : rem <= 10 ? 'var(--warn)' : 'var(--success)';
+    } catch {
+      document.getElementById('totp-live-display').innerHTML = '';
+      document.getElementById('timer-text').textContent = 'Secret TOTP inválido';
+    }
+  }
+
+  update();
+  totpInterval = setInterval(update, 1000);
+}
+
+// Inicializa display com secret genérico
+startTOTPDisplay('DEMOKEY1234567890');
+
+// ─────────────────────────────────────────────
+// Verificar política
+// ─────────────────────────────────────────────
+async function checkPolicy() {
+  try {
+    const r = await fetch(API + '/api/debug/users', { credentials: 'include' });
+    const data = await r.json();
+    const email = document.getElementById('policy-email').value.trim();
+    const user = data.users.find(u => u.email === email);
+    const el = document.getElementById('policy-result');
+
+    if (!user) {
+      el.innerHTML = '<span style="font-size:13px;color:var(--muted);">Usuário não encontrado.</span>';
+      return;
+    }
+
+    const locked = user.lockedUntil && Date.now() < user.lockedUntil;
+    const remaining = locked ? Math.ceil((user.lockedUntil - Date.now()) / 60000) : 0;
+
+    const dots = Array.from({ length: 5 }, (_, i) =>
+      `<div class="dot ${i < user.attempts ? (locked ? 'locked' : 'used') : ''}"></div>`
+    ).join('');
+
+    el.innerHTML = `
+      <div style="font-size:13px;color:var(--text);margin-bottom:8px;">
+        <span class="badge ${user.totpEnabled ? 'badge-green' : 'badge-blue'}">
+          2FA ${user.totpEnabled ? 'ativo' : 'inativo'}
+        </span>
+        &nbsp;
+        <span class="badge ${locked ? 'badge-red' : 'badge-green'}">
+          ${locked ? `Bloqueado ${remaining}min` : 'Desbloqueado'}
+        </span>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">
+        Tentativas: ${user.attempts}/${data.policy.MAX_ATTEMPTS}
+      </div>
+      <div class="attempt-dots">${dots}</div>
+    `;
+  } catch(e) {
+    document.getElementById('policy-result').innerHTML =
+      '<span style="font-size:13px;color:var(--muted);">Erro ao consultar servidor.</span>';
+  }
+}
+</script>
+</body>
+</html>
